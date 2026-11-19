@@ -33,7 +33,7 @@ progress::-webkit-progress-value{background:#9cdaba}
 .atlas-footer{font-size:.82rem;color:var(--soft);align-items:baseline}
 .atlas-footer span:last-child{text-align:right}
 .map-scroll{overflow:auto;background:#bac7c7}
-.map-frame{position:relative;width:100%;min-width:560px}
+.map-frame{position:relative;width:100%}
 .map-frame img{display:block;width:100%;height:auto;aspect-ratio:1307/873}
 #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 #map-frame.is-locating #overlay{pointer-events:auto;cursor:crosshair}
@@ -83,3 +83,15 @@ progress::-webkit-progress-value{background:#9cdaba}
   #numbered-answers li{break-inside:avoid;margin:0 0 3mm}
   .answer-line{display:inline-block;width:90%;border-bottom:1px solid #777}
 }
+
+.choice-point{fill:#16354e;stroke:#fff;stroke-width:2;vector-effect:non-scaling-stroke}
+.choice-leader{stroke:#16354e;stroke-width:1;vector-effect:non-scaling-stroke;opacity:.8}
+.choice-focus,.choice-solution{fill:none;stroke-width:3;vector-effect:non-scaling-stroke}
+.choice-focus{stroke:#0078bd}
+.choice-solution{stroke:#00824c}
+.map-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.map-scroll:has(.is-zoomed){max-height:71vh}
+.map-frame.is-zoomed{width:166%;min-width:870px}
+@media(max-width:480px){.atlas-head{align-items:flex-start}.atlas-head h2{max-width:12rem}.map-actions button{font-size:.78rem}}
+.session-meta{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:6px 10px}
+.points-count{border-radius:6px;padding:.15rem .45rem;background:#e1f2e8;color:#18513a;font-size:.88rem;white-space:nowrap}

@@ -5,6 +5,9 @@ const svg = select('#overlay');
 const marker = select('#quiz-marker');
 const mapImage = select('#map-image');
 const sourceToggle = select('#source-toggle');
+const zoomToggle = select('#zoom-toggle');
+const {x:mapX, y:mapY, width:mapWidth, height:mapHeight} = svg.viewBox.baseVal;
+const mapCenter = {x:mapX + mapWidth / 2, y:mapY + mapHeight / 2};
 const storageKey = 'europa-fisica-estudio-v1';
 const soundKey = 'europa-fisica-sonido';
 const soundToggle = select('#sound-toggle');
@@ -76,7 +79,9 @@ function options() {
 }
 
 function start(questions) {
-  session = {questions, index: 0, answers: [], checked: false, attempts: 0, usedHint: false, result: null};
+  const roundChoices = mode === 'locate' ? layoutChoices(questions.map(({place}) => place)
+    .sort((a,b) => a.id - b.id)) : null;
+  session = {questions, index: 0, answers: [], checked: false, attempts: 0, result: null, roundChoices};
   cursor = null;
   render(true);
 }
@@ -127,7 +132,7 @@ function renderStart() {
   if (mode === 'review') {
     const questions = missed();
     const copy = questions.length
-      ? `Tienes ${questions.length} ejercicios para volver a intentar. Se retiran de esta lista cuando los aciertas sin ayuda.`
+      ? `Tienes ${questions.length} ejercicios para volver a intentar. Se retiran de esta lista cuando los aciertas.`
       : 'Aquí aparecerán los ejercicios que falles. Empieza por Localiza o Escribe.';
     panel.innerHTML = `<h2 id="panel-title">Mis fallos</h2><p>${copy}</p>
       <button class="primary" id="start">${questions.length ? 'Repasar mis fallos' : 'Ir a Localiza'}</button>`;
@@ -136,7 +141,7 @@ function renderStart() {
   }
   if (mode === 'exam') {
     panel.innerHTML = `<h2 id="panel-title">Simulacro</h2>
-      <p>Combina preguntas de localizar y escribir. La nota sobre 10 y las soluciones aparecen al final.</p>
+      <p>Combina preguntas de localizar y escribir. Cada acierto vale un punto. La nota sobre 10 y las soluciones aparecen al final.</p>
       <div class="row"><button class="primary" id="short-exam">20 preguntas</button><button id="full-exam">Todo el mapa</button></div>
       <h3 class="paper-heading">Para practicar en papel</h3>
       <div class="row"><button id="print-numbered-button">Imprimir ficha numerada</button>
@@ -155,7 +160,7 @@ function renderStart() {
   }
   const locate = mode === 'locate';
   panel.innerHTML = `<h2 id="panel-title">${locate ? 'Localiza el lugar' : 'Escribe el nombre'}</h2>
-    <p>${locate ? 'Lee el nombre y señala su posición sobre el mapa.' : 'Mira el lugar marcado y escribe su nombre sin opciones.'}</p>
+    <p>${locate ? 'Lee el nombre y elige su punto en el mapa.' : 'Mira el lugar marcado y escribe su nombre sin opciones.'}</p>
     <label for="practice-category">Grupo de lugares</label><select id="practice-category">${options()}</select>
     <button class="primary" id="start">Empezar práctica</button>`;
   select('#practice-category').value = category;
@@ -168,21 +173,38 @@ function examQuestions(items) {
   return shuffle(items).map((place, index) => ({place, kind: index % 2 ? 'name' : 'locate'}));
 }
 
+function pointsScored() {
+  return session.answers.filter(({correct}) => correct).length;
+}
+
+function locationChoices() {
+  if (mode === 'locate') return session.roundChoices;
+  if (mode === 'review') {
+    const {type} = current().place;
+    return layoutChoices(places.filter((place) => place.type === type));
+  }
+  return null;
+}
+
 function renderQuestion() {
   const question = current();
   const {place, kind} = question;
   const exam = mode === 'exam';
   const locate = kind === 'locate';
+  const choosingPoint = locate && !exam;
   const checked = session.checked;
   const result = session.result;
   const title = exam ? 'Simulacro' : mode === 'review' ? 'Mis fallos' : locate ? 'Localiza el lugar' : 'Escribe el nombre';
   panel.innerHTML = `<h2 id="panel-title">${title}</h2>
-    <div class="question-meta">Pregunta ${session.index + 1} de ${session.questions.length} · ${categories[place.type][0]}</div>
-    <div class="task"><h3 id="task-title" tabindex="-1">${locate ? 'Señala en el mapa' : '¿Qué lugar está marcado?'}</h3>
+    <div class="session-meta">
+      <span class="question-meta">Pregunta ${session.index + 1} de ${session.questions.length} · ${categories[place.type][0]}</span>
+      ${exam ? '' : `<strong class="points-count" aria-label="Puntuación de la ronda">${pointsScored()} / ${session.questions.length} puntos</strong>`}
+    </div>
+    <div class="task"><h3 id="task-title" tabindex="-1">${locate ? (choosingPoint ? 'Elige el punto correcto' : 'Señala en el mapa') : '¿Qué lugar está marcado?'}</h3>
     ${locate ? `<p><strong>${place.name}</strong></p>` : `<form id="name-form">
       <label for="answer">Tu respuesta</label><input id="answer" autocomplete="off" spellcheck="false" ${checked ? 'disabled' : 'required'}>
       <button class="primary" type="submit" ${checked ? 'disabled' : ''}>${exam ? 'Guardar respuesta' : 'Comprobar'}</button></form>`}
-    ${locate && !checked ? '<p class="muted question-meta">Pulsa el mapa o <button type="button" class="text-button" id="focus-map">responde con el teclado</button>.</p>' : ''}
+    ${locate && !checked ? `<p class="muted question-meta">${choosingPoint ? 'Pulsa uno de los puntos' : 'Pulsa el mapa'} o <button type="button" class="text-button" id="focus-map">responde con el teclado</button>.</p>` : ''}
     <span class="feedback" id="feedback" role="status"></span>
     <div class="row">
     ${exam ? '<button id="skip">Dejar en blanco</button>' : checked
@@ -202,16 +224,18 @@ function renderQuestion() {
   }
   if (select('#focus-map')) select('#focus-map').onclick = () => {
     svg.focus();
-    cursor ||= {x:655,y:445};
-    marker.replaceChildren();
-    drawPoint(cursor.x,cursor.y,'#2c4344',7);
+    const choices = locationChoices();
+    if (choices) {
+      focusChoice(choices, cursor?.index ?? 0);
+      showFeedback('Recorre los puntos con las flechas y pulsa Intro para elegir.');
+      return;
+    }
+    cursor ||= {...mapCenter};
+    drawLocateCursor();
     revealPoint(cursor);
     showFeedback('Mueve el punto con las flechas y pulsa Intro para responder.');
   };
-  if (select('#hint')) select('#hint').onclick = () => {
-    session.usedHint = true;
-    showFeedback(place.clue);
-  };
+  if (select('#hint')) select('#hint').onclick = () => showFeedback(place.clue);
   if (select('#skip')) select('#skip').onclick = () => answer(false, '', null, true);
   if (select('#next')) select('#next').onclick = advance;
 }
@@ -244,13 +268,12 @@ function answer(correct, response, point = null, skip = false) {
     correctSound.currentTime = 0;
     correctSound.play().catch(() => {});
   }
-  const independent = correct && session.attempts === 0 && !session.usedHint;
-  record(question, independent);
-  session.answers.push({question, correct: independent, response, point});
+  record(question, correct);
+  session.answers.push({question, correct, response, point});
   session.checked = true;
   session.result = {
     response,
-    message: correct ? (independent ? '¡Correcto!' : '¡Correcto! Volverás a practicarlo en Mis fallos.')
+    message: correct ? '¡Correcto! +1 punto.'
       : `Solución · ${place.name}. ${place.clue}`,
     style: correct ? 'good' : 'bad'
   };
@@ -262,7 +285,6 @@ function answer(correct, response, point = null, skip = false) {
 function advance() {
   session.index++;
   session.checked = false;
-  session.usedHint = false;
   session.attempts = 0;
   session.result = null;
   cursor = null;
@@ -272,11 +294,12 @@ function advance() {
 function renderResults() {
   const exam = mode === 'exam';
   const total = session.answers.length;
-  const score = session.answers.filter(({correct}) => correct).length;
+  const score = pointsScored();
+  const grade = total ? (10 * score / total).toLocaleString('es-ES', {maximumFractionDigits:1}) : '0';
   panel.innerHTML = `<h2 id="panel-title" tabindex="-1">${exam ? 'Resultado del simulacro' : 'Práctica terminada'}</h2>
-    <p><strong>${score} de ${total}</strong> ${exam ? 'aciertos' : 'aciertos sin ayuda'}.</p>
-    ${exam ? `<p><strong>Nota · ${(10 * score / total).toLocaleString('es-ES', {maximumFractionDigits:1})}/10</strong></p>
-    <ol class="results-list" aria-label="Corrección del simulacro"></ol>` : ''}
+    <p><strong>${score} de ${total}</strong> aciertos.</p>
+    <p><strong>Nota · ${grade}/10</strong></p>
+    ${exam ? '<ol class="results-list" aria-label="Corrección del simulacro"></ol>' : ''}
     <div class="row"><button class="primary" id="repeat">Volver a empezar</button>
     ${exam ? '' : '<button id="go-review">Ver mis fallos</button>'}</div>`;
   if (exam) {
@@ -344,9 +367,64 @@ function drawPlace(place, shape = true) {
   }
 }
 
+function layoutChoices(items) {
+  const points = [];
+  const spacing = 39;
+  for (const place of items) {
+    const {x:anchorX, y:anchorY} = place;
+    const inBounds = {
+      x: Math.max(mapX + 12, Math.min(mapX + mapWidth - 12, anchorX)),
+      y: Math.max(mapY + 12, Math.min(mapY + mapHeight - 12, anchorY)),
+    };
+    const candidates = [inBounds];
+    for (const radius of [spacing, spacing * 1.5, spacing * 2, spacing * 3]) {
+      for (let direction = 0; direction < 8; direction++) {
+        const angle = direction * Math.PI / 4;
+        candidates.push({x: anchorX + radius * Math.cos(angle), y: anchorY + radius * Math.sin(angle)});
+      }
+    }
+    const point = candidates.find(({x,y}) =>
+      x >= mapX + 12 && x <= mapX + mapWidth - 12 && y >= mapY + 12 && y <= mapY + mapHeight - 12
+      && points.every((p) => Math.hypot(x-p.x, y-p.y) >= spacing - 0.01));
+    points.push({...point ?? inBounds, anchorX, anchorY, place});
+  }
+  return points.sort((a,b) => a.x - b.x || a.y - b.y);
+}
+
+function drawChoices(choices, solution) {
+  marker.replaceChildren();
+  for (const {x,y,anchorX,anchorY} of choices) {
+    if (x !== anchorX || y !== anchorY) {
+      createSvg('line', {x1:x, y1:y, x2:anchorX, y2:anchorY, class:'choice-leader'});
+    }
+  }
+  choices.forEach(({x,y,place}, index) => {
+    if (solution === place || (!solution && index === cursor?.index)) {
+      createSvg('circle',{cx:x,cy:y,r:19,class:solution ? 'choice-solution' : 'choice-focus'});
+    }
+    createSvg('circle',{cx:x,cy:y,r:12,class:'choice-point'});
+  });
+}
+
+function focusChoice(choices, index) {
+  cursor = {index};
+  drawChoices(choices);
+  revealPoint(choices[index]);
+}
+
+function answerChoice(choice) {
+  answer(choice.place === current().place, '', {x:choice.x, y:choice.y});
+}
+
+function drawLocateCursor() {
+  marker.replaceChildren();
+  drawPoint(cursor.x,cursor.y,'#2c4344',7);
+}
+
 function updateMap() {
   const question = current();
   const locate = question?.kind === 'locate' && !session.checked;
+  const choices = question?.kind === 'locate' ? locationChoices() : null;
   sourceToggle.hidden = mode !== 'explore';
   sourceToggle.setAttribute('aria-pressed', String(showSource));
   sourceToggle.textContent = showSource ? 'Volver al mapa mudo' : 'Ver foto original';
@@ -355,11 +433,19 @@ function updateMap() {
   frame.classList.toggle('is-source', showSource);
   frame.classList.toggle('is-locating', locate);
   svg.setAttribute('tabindex', locate ? '0' : '-1');
-  svg.setAttribute('aria-label', locate ? 'Mapa interactivo. Usa las flechas y pulsa Intro.' : 'Capa interactiva del mapa');
+  svg.setAttribute('aria-label', locate
+    ? (choices ? 'Mapa con puntos. Usa las flechas para elegir y pulsa Intro.' : 'Mapa interactivo. Usa las flechas y pulsa Intro.')
+    : 'Capa interactiva del mapa');
   marker.replaceChildren();
   if (mode === 'explore' && explored && !showSource) drawPlace(explored);
-  if (question && (question.kind === 'name' || session.checked)) drawPlace(question.place);
-  select('#map-instruction').textContent = locate ? 'Pulsa el mapa para responder. Si hace falta, deslízalo hacia los lados.'
+  if (choices) drawChoices(choices, session.checked ? question.place : null);
+  else if (question && session.checked) drawPlace(question.place);
+  else if (question?.kind === 'name') {
+    const {x, y, type} = question.place;
+    drawPoint(x, y, categories[type][1]);
+  }
+  select('#map-instruction').textContent = locate
+    ? (choices ? 'Elige uno de los puntos. Amplía el mapa si están muy juntos.' : 'Pulsa la zona del lugar. Si es un río o una cordillera, puedes señalar cualquier tramo de su trazado.')
     : mode === 'explore' ? 'Elige un nombre para verlo en el mapa.'
     : question?.kind === 'name' ? 'Fíjate en el lugar señalado.' : 'Mapa mudo de Europa física.';
 }
@@ -367,16 +453,33 @@ function updateMap() {
 function revealPoint(place) {
   const container = select('#map-scroll');
   if (container.scrollWidth <= container.clientWidth) return;
-  const pixel = (place.x - 9) / 1307 * frame.clientWidth;
-  container.scrollLeft = Math.max(0, pixel - container.clientWidth / 2);
+  const pixelX = (place.x - mapX) / mapWidth * frame.clientWidth;
+  const pixelY = (place.y - mapY) / mapHeight * frame.clientHeight;
+  container.scrollLeft = Math.max(0, pixelX - container.clientWidth / 2);
+  container.scrollTop = Math.max(0, pixelY - container.clientHeight / 2);
 }
 
 svg.addEventListener('click', (event) => {
   const question = current();
   if (question?.kind !== 'locate' || session.checked) return;
   const bounds = svg.getBoundingClientRect();
-  const x = 9 + 1307 * (event.clientX - bounds.left) / bounds.width;
-  const y = 8 + 873 * (event.clientY - bounds.top) / bounds.height;
+  const x = mapX + mapWidth * (event.clientX - bounds.left) / bounds.width;
+  const y = mapY + mapHeight * (event.clientY - bounds.top) / bounds.height;
+  const choices = locationChoices();
+  if (choices) {
+    let closest = null;
+    let distance = Math.max(19, 12 * mapWidth / bounds.width);
+    for (const choice of choices) {
+      const offset = Math.hypot(choice.x - x, choice.y - y);
+      if (offset <= distance) {
+        closest = choice;
+        distance = offset;
+      }
+    }
+    if (closest) answerChoice(closest);
+    else showFeedback('Pulsa cerca de uno de los puntos del mapa.');
+    return;
+  }
   cursor = {x,y};
   answer(matchLocation(question.place,x,y), '', cursor);
 });
@@ -387,14 +490,22 @@ svg.addEventListener('keydown', (event) => {
   const directions = {ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
   if (!directions[event.key] && event.key !== 'Enter' && event.key !== ' ') return;
   event.preventDefault();
-  cursor ||= {x:655,y:445};
+  const choices = locationChoices();
+  if (choices) {
+    if (cursor?.index === undefined) focusChoice(choices, 0);
+    else if (directions[event.key]) {
+      const [dx,dy] = directions[event.key];
+      focusChoice(choices, (cursor.index + dx + dy + choices.length) % choices.length);
+    } else answerChoice(choices[cursor.index]);
+    return;
+  }
+  cursor ||= {...mapCenter};
   if (directions[event.key]) {
     const [dx,dy] = directions[event.key];
     const step = event.shiftKey ? 35 : 9;
-    cursor.x = Math.min(1311, Math.max(14,cursor.x + step * dx));
-    cursor.y = Math.min(876, Math.max(13,cursor.y + step * dy));
-    marker.replaceChildren();
-    drawPoint(cursor.x,cursor.y,'#2c4344',7);
+    cursor.x = Math.min(mapX + mapWidth - 5, Math.max(mapX + 5,cursor.x + step * dx));
+    cursor.y = Math.min(mapY + mapHeight - 5, Math.max(mapY + 5,cursor.y + step * dy));
+    drawLocateCursor();
     revealPoint(cursor);
   } else {
     answer(matchLocation(question.place,cursor.x,cursor.y), '', {...cursor});
@@ -455,6 +566,16 @@ soundToggle.onclick = () => {
   if (!soundEnabled) correctSound.pause();
   try { localStorage.setItem(soundKey, soundEnabled ? 'on' : 'off'); } catch {}
   updateSoundButton();
+};
+
+zoomToggle.onclick = () => {
+  const zoomed = frame.classList.toggle('is-zoomed');
+  zoomToggle.setAttribute('aria-pressed', String(zoomed));
+  zoomToggle.textContent = zoomed ? 'Reducir mapa' : 'Ampliar mapa';
+  const question = current();
+  const visiblePlace = question && (question.kind === 'name' || session.checked) ? question.place
+    : mode === 'explore' && !showSource ? explored : null;
+  if (visiblePlace) revealPoint(visiblePlace);
 };
 
 sourceToggle.onclick = () => { showSource = !showSource; updateMap(); };

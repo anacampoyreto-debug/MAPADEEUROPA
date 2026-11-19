@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#162e36">
 <title>Europa física · 1.º de ESO</title>
 <meta name="description" content="Estudia el mapa físico de Europa. Localiza, escribe y comprueba lo que sabes con un simulacro.">
-<link rel="stylesheet" href="estilos.css">
+<link rel="stylesheet" href="estilos.css?v=puntos-1">
 <script defer src="lugares.js"></script>
-<script defer src="app.js"></script>
+<script defer src="app.js?v=puntos-1"></script>
 </head>
 <body>
 <header class="top">
@@ -24,7 +24,7 @@
   </nav>
   <main class="workspace">
     <section class="atlas" aria-labelledby="atlas-title">
-      <div class="atlas-head"><h2 id="atlas-title">Mapa físico de Europa</h2><button id="source-toggle" type="button" aria-pressed="false">Ver foto original</button></div>
+      <div class="atlas-head"><h2 id="atlas-title">Mapa físico de Europa</h2><div class="map-actions"><button id="zoom-toggle" type="button" aria-pressed="false" aria-controls="map-scroll">Ampliar mapa</button><button id="source-toggle" type="button" aria-pressed="false">Ver foto original</button></div></div>
       <div class="map-scroll" id="map-scroll">
         <div class="map-frame" id="map-frame">
           <img id="map-image" src="mapa.png" width="1307" height="873" alt="Mapa físico de Europa con el norte arriba. El océano Atlántico queda a la izquierda y el mar Mediterráneo en la parte inferior.">
