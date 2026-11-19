@@ -6,9 +6,9 @@
 <meta name="theme-color" content="#162e36">
 <title>Europa física · 1.º de ESO</title>
 <meta name="description" content="Estudia el mapa físico de Europa. Localiza, escribe y comprueba lo que sabes con un simulacro.">
-<link rel="stylesheet" href="estilos.css?v=puntos-1">
-<script defer src="lugares.js"></script>
-<script defer src="app.js?v=puntos-1"></script>
+<link rel="stylesheet" href="estilos.css?v=relieve-1">
+<script defer src="lugares.js?v=relieve-1"></script>
+<script defer src="app.js?v=relieve-1"></script>
 </head>
 <body>
 <header class="top">
@@ -27,13 +27,13 @@
       <div class="atlas-head"><h2 id="atlas-title">Mapa físico de Europa</h2><div class="map-actions"><button id="zoom-toggle" type="button" aria-pressed="false" aria-controls="map-scroll">Ampliar mapa</button><button id="source-toggle" type="button" aria-pressed="false">Ver foto original</button></div></div>
       <div class="map-scroll" id="map-scroll">
         <div class="map-frame" id="map-frame">
-          <img id="map-image" src="mapa.png" width="1307" height="873" alt="Mapa físico de Europa con el norte arriba. El océano Atlántico queda a la izquierda y el mar Mediterráneo en la parte inferior.">
-          <svg id="overlay" viewBox="9 8 1307 873" aria-label="Capa interactiva del mapa">
+          <img id="map-image" src="europa-relieve.jpg" width="1600" height="1176" alt="Mapa físico mudo de Europa con relieve, costas y ríos.">
+          <svg id="overlay" viewBox="0 0 1600 1176" aria-label="Capa interactiva del mapa">
             <g id="quiz-marker"></g>
           </svg>
         </div>
       </div>
-      <footer class="atlas-footer"><span id="map-instruction">Elige un nombre para verlo en el mapa.</span><span>Mapa base de Editorial Teide</span></footer>
+      <footer class="atlas-footer"><span id="map-instruction">Elige un nombre para verlo en el mapa.</span><span id="map-credit">Relieve y ríos de <a href="https://www.naturalearthdata.com/">Natural Earth</a> · dominio público.</span></footer>
     </section>
     <section class="panel" id="panel" aria-labelledby="panel-title"></section>
   </main>
@@ -42,20 +42,20 @@
   <h1>Europa física · Mapa mudo</h1>
   <p>Nombre _______________________________________ &nbsp; Fecha _______________</p>
   <p>Localiza cada lugar en el mapa. Escribe su número y, si hace falta, dibuja una línea hasta el lugar correspondiente.</p>
-  <img src="mapa.png" alt="Mapa físico mudo de Europa">
+  <img src="europa-relieve.jpg" alt="Mapa físico mudo de Europa">
   <div id="print-list"></div>
-  <p>Mapa base de Editorial Teide.</p>
+  <p>Relieve y ríos de Natural Earth · dominio público.</p>
 </section>
 <section id="print-numbered" class="print-page" aria-label="Ficha numerada imprimible">
   <h1 id="numbered-title">Europa física · Ficha numerada</h1>
   <p>Nombre _______________________________________ &nbsp; Fecha _______________</p>
   <p id="numbered-instruction">Escribe el nombre de cada lugar junto a su número. Si un número lleva una línea, fíjate en el punto donde termina.</p>
   <div class="print-map">
-    <img src="mapa.png" alt="Mapa físico mudo de Europa">
-    <svg id="print-markers" viewBox="9 8 1307 873" aria-hidden="true"></svg>
+    <img src="europa-relieve.jpg" alt="Mapa físico mudo de Europa">
+    <svg id="print-markers" viewBox="0 0 1600 1176" aria-hidden="true"></svg>
   </div>
   <ol id="numbered-answers" aria-label="Lugares numerados"></ol>
-  <p>Mapa base de Editorial Teide.</p>
+  <p>Relieve y ríos de Natural Earth · dominio público.</p>
 </section>
 <audio id="correct-sound" src="acierto.wav" preload="auto"></audio>
 </body>

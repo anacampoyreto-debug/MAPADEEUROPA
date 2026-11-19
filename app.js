@@ -4,8 +4,11 @@ const frame = select('#map-frame');
 const svg = select('#overlay');
 const marker = select('#quiz-marker');
 const mapImage = select('#map-image');
+const blankMap = mapImage.getAttribute('src');
 const sourceToggle = select('#source-toggle');
 const zoomToggle = select('#zoom-toggle');
+const mapCredit = select('#map-credit');
+const reliefCredit = mapCredit.innerHTML;
 const {x:mapX, y:mapY, width:mapWidth, height:mapHeight} = svg.viewBox.baseVal;
 const mapCenter = {x:mapX + mapWidth / 2, y:mapY + mapHeight / 2};
 const storageKey = 'europa-fisica-estudio-v1';
@@ -337,7 +340,8 @@ function pointSegmentDistance(x, y, [ax, ay], [bx, by]) {
 function matchLocation(place, x, y) {
   if (place.line) {
     const tolerance = place.type === 'relieve' || place.type === 'costa' ? 21 : 16;
-    return place.line.slice(1).some((end, i) => pointSegmentDistance(x,y,place.line[i],end) <= tolerance);
+    return [place.line, ...(place.extraLines ?? [])].some((line) =>
+      line.slice(1).some((end, i) => pointSegmentDistance(x,y,line[i],end) <= tolerance));
   }
   const [cx,cy,rx,ry] = place.area || [place.x,place.y,18,18];
   return ((x-cx)/rx)**2 + ((y-cy)/ry)**2 <= 1;
@@ -358,10 +362,12 @@ function drawPlace(place, shape = true) {
   marker.replaceChildren();
   const color = categories[place.type][1];
   if (shape && place.line) {
-    const points = place.line.map((point) => point.join(',')).join(' ');
-    const attrs = {points,fill:'none','stroke-linecap':'round','stroke-linejoin':'round'};
-    createSvg('polyline',{...attrs,stroke:'#fff','stroke-width':9});
-    createSvg('polyline',{...attrs,stroke:color,'stroke-width':5});
+    for (const line of [place.line, ...(place.extraLines ?? [])]) {
+      const points = line.map((point) => point.join(',')).join(' ');
+      const attrs = {points,fill:'none','stroke-linecap':'round','stroke-linejoin':'round'};
+      createSvg('polyline',{...attrs,stroke:'#fff','stroke-width':9});
+      createSvg('polyline',{...attrs,stroke:color,'stroke-width':5});
+    }
   } else {
     drawPoint(place.x,place.y,color);
   }
@@ -428,8 +434,9 @@ function updateMap() {
   sourceToggle.hidden = mode !== 'explore';
   sourceToggle.setAttribute('aria-pressed', String(showSource));
   sourceToggle.textContent = showSource ? 'Volver al mapa mudo' : 'Ver foto original';
-  mapImage.src = showSource ? 'solucionario.png' : 'mapa.png';
-  mapImage.alt = showSource ? 'Fotografía del mapa original con los nombres escritos a mano.' : 'Mapa físico mudo de Europa, con el norte arriba.';
+  mapImage.src = showSource ? 'solucionario.png' : blankMap;
+  mapImage.alt = showSource ? 'Fotografía del mapa original con los nombres escritos a mano.' : 'Mapa físico mudo de Europa con relieve, costas y ríos.';
+  mapCredit.innerHTML = showSource ? 'Mapa anotado de Editorial Teide.' : reliefCredit;
   frame.classList.toggle('is-source', showSource);
   frame.classList.toggle('is-locating', locate);
   svg.setAttribute('tabindex', locate ? '0' : '-1');
@@ -452,7 +459,7 @@ function updateMap() {
 
 function revealPoint(place) {
   const container = select('#map-scroll');
-  if (container.scrollWidth <= container.clientWidth) return;
+  if (container.scrollWidth <= container.clientWidth && container.scrollHeight <= container.clientHeight) return;
   const pixelX = (place.x - mapX) / mapWidth * frame.clientWidth;
   const pixelY = (place.y - mapY) / mapHeight * frame.clientHeight;
   container.scrollLeft = Math.max(0, pixelX - container.clientWidth / 2);
@@ -534,8 +541,9 @@ function printWorksheet(format) {
     answers.replaceChildren();
     paperItems.forEach(([name, dx = 0, dy = 0], index) => {
       const place = places.find((item) => item.name === name);
-      const x = place.x + dx, y = place.y + dy;
-      if (dx || dy) {
+    const x = Math.max(mapX + 20, Math.min(mapX + mapWidth - 20, place.x + dx));
+    const y = Math.max(mapY + 20, Math.min(mapY + mapHeight - 20, place.y + dy));
+    if (x !== place.x || y !== place.y) {
         createSvg('line', {x1:place.x,y1:place.y,x2:x,y2:y,stroke:'white','stroke-width':7}, marks);
         createSvg('line', {x1:place.x,y1:place.y,x2:x,y2:y,stroke:'#172f38','stroke-width':3}, marks);
         createSvg('circle', {cx:place.x,cy:place.y,r:4,fill:'#172f38',stroke:'white','stroke-width':2}, marks);
